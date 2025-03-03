@@ -1,0 +1,12 @@
+.waterfall-chart {
+  border: 1px solid red;
+}
+.waterfall-chart {
+  .bar {
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+}

@@ -1,109 +1,86 @@
-import React, { useMemo, useState } from 'react';
-import { Bar } from '@visx/shape';
-import { scaleLinear } from '@visx/scale';
-import { AxisBottom, AxisLeft } from '@visx/axis';
-import { Group } from '@visx/group';
-import { WaterfallChartProps, ColumnType, Format, Column } from './types';
+import  { useState, useMemo } from "react";
+import { scaleLinear } from "@visx/scale";
+import { Bar } from "@visx/shape";
+import { Group } from "@visx/group";
+import { AxisLeft, AxisBottom } from "@visx/axis";
+import { Line } from "@visx/shape";
+import "./WaterfallChart.module.scss"; 
+import React = require("react");
 
-type DataType = Column & { start: number, width: number };
+// Define types
+interface DataPoint {
+  label: string;
+  value: number;
+  cumulative: number;
+}
 
-const margin = { top: 20, left: 100, right: 20, bottom: 40 };
-const width = 600;
-const height = 400;
+interface WaterfallChartProps {
+  series: { label: string; value: number }[];
+  format?: "currency" | "decimal";
+  theme?: "light" | "dark";
+}
 
-const WaterfallChart: React.FC<WaterfallChartProps> = ({ className, format, series }) => {
-  const sum = series.reduce((acc, col) => col.value + acc, 0);
-  const maxValue = Math.max(...series.map(c => Math.abs(c.value)), sum);
+const WaterfallChart: React.FC<WaterfallChartProps> = ({
+  series,
+  format = "decimal",
+  theme = "light",
+}) => {
+  const [data, setData] = useState(series);
 
-  const xScale = scaleLinear<number>({
-    domain: [0, maxValue],
-    range: [margin.left, width - margin.right],
-  });
-
-  const yScale = scaleLinear<number>({
-    domain: [0, series.length],
-    range: [margin.top, height - margin.bottom],
-  });
-
-  const getWidth = (v: number) => {
-    const val = Math.abs(v) * 6;
-    console.log('val', v, val);
-    return val;
-  }
-
-  const chartData = useMemo(() => {
-    const data: DataType[] = [];
-    let currentPos = 0;
-    for (let i = 0; i < series.length; i ++) {
-      if (i === 0) {
-        data.push({ ...series[i], start: 0, width: getWidth(series[i].value) });
-        currentPos = getWidth(series[i].value);
-      } else {
-        const width = getWidth(series[i].value);
-        data.push({
-          ...series[i],
-          start: series[i].value >=0 ? currentPos : currentPos - width,
-          width,
-        });
-        currentPos = (series[i].value >=0 ? currentPos + width : currentPos - width);
-      }
-    }
-    data.push({
-      type: ColumnType.End,
-      start: 0,
-      value: sum,
-      width: getWidth(sum),
-      label: 'end'
+  // Compute cumulative values
+  const computedData: DataPoint[] = useMemo(() => {
+    let cumulative = 0;
+    return data.map((item) => {
+      cumulative += item.value;
+      return { ...item, cumulative };
     });
+  }, [data]);
 
-    return data;
-  }, [series]);
+  // Scale setup
+  const width = 500;
+  const height = 300;
+  const xMax = width - 100;
+  const yMax = height - 50;
+  const yScale = scaleLinear({
+    domain: [0, Math.max(...computedData.map((d) => d.cumulative))],
+    range: [yMax, 0],
+  });
 
-  // Handle bar click event to remove a column
+  // Handle Bar Click to Remove
   const handleBarClick = (index: number) => {
-    const updatedData = chartData.filter((_, idx) => idx !== index);
-    console.log(updatedData);
+    setData(data.filter((_, i) => i !== index));
   };
-
-  // Format values for display
-  const formatValue = (value: number): string => {
-    return format === Format.Currency ? `$${value.toFixed()}` : value.toFixed();
-  };
-
 
   return (
-    <div className={className}>
-      <svg width={width + 200} height={height}>
-        <Group>
-          {/* Render Bars */}
-          {chartData.map((column, index) => (
-            <Bar
-              key={index}
-              x={margin.left + column.start}
-              y={yScale(index)}
-              width={column.width}
-              height={30}
-              fill={(column.type === ColumnType.Start || column.type === ColumnType.End) ? '#808080' : column.value >= 0 ? '#28a745' : '#dc3545'}
-              onClick={() => handleBarClick(index)}
-            />
-          ))}
+    <div className={`waterfall-chart ${theme}`}>
+      <svg width={width} height={height}>
+        <Group left={50} top={10}>
+          {computedData.map((d, i) => {
+            const barHeight = yMax - yScale(d.cumulative);
+            return (
+              <Group key={d.label}>
+                <Bar
+                  x={i * 60}
+                  y={yScale(d.cumulative)}
+                  width={50}
+                  height={barHeight}
+                  fill={d.value < 0 ? "red" : "green"}
+                  onClick={() => handleBarClick(i)}
+                />
+                {i > 0 && (
+                  <Line
+                    from={{ x: (i - 1) * 60 + 50, y: yScale(computedData[i - 1].cumulative) }}
+                    to={{ x: i * 60, y: yScale(d.cumulative) }}
+                    stroke="black"
+                    strokeWidth={2}
+                  />
+                )}
+              </Group>
+            );
+          })}
+          <AxisLeft scale={yScale} />
+          <AxisBottom top={yMax} scale={scaleLinear({ domain: [0, data.length], range: [0, xMax] })} />
         </Group>
-
-        {chartData.map((column, index) => (
-          <text
-            key={`text-${index}`}
-            x={margin.left + column.start + column.width - 10 * (column.value.toString().length + 2 + (format === Format.Currency ? 1 : 0))}
-            y={yScale(index) + 20}
-            textAnchor="start"
-            fill="white"
-            fontSize={12}
-          >
-            {formatValue(column.value)}
-          </text>
-        ))}
-
-        {/* <AxisBottom scale={xScale} top={height - margin.bottom} hideTicks hideZero /> */}
-        <AxisLeft scale={yScale} left={margin.left} numTicks={chartData.length} tickFormat={(value, i) => value === 0 ? "start" : value === chartData.length - 1 ? "end" : (i - 1).toString()} />
       </svg>
     </div>
   );

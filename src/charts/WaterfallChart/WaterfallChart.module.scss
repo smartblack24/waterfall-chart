@@ -1,12 +1,26 @@
 .waterfall-chart {
-  border: 1px solid red;
-}
-.waterfall-chart {
-  .bar {
+  padding: 20px;
+  border: 1px solid #ddd;
+
+  &.light {
+    background: #fff;
+    color: #000;
+  }
+
+  &.dark {
+    background: #222;
+    color: #fff;
+  }
+
+  svg {
     cursor: pointer;
-    transition: opacity 0.3s ease;
-    &:hover {
-      opacity: 0.7;
-    }
+  }
+
+  rect {
+    transition: fill 0.3s ease, transform 0.2s;
+  }
+
+  rect:hover {
+    transform: scale(1.05);
   }
 }

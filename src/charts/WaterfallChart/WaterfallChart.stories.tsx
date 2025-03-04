@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React from "react";
+import React = require("react");
 import WaterfallChart from "./WaterfallChart";
 import { ColumnType, Format } from "./types";
 
